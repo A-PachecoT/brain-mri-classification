@@ -80,4 +80,6 @@ The model achieves:
 Results are saved in:
 - Model weights: `artifacts/models/best_model.h5`
 - Training plots: `artifacts/plots/training_history.png`
+![Training plots](artifacts/plots/training_history.png)
 - Confusion matrix: `artifacts/plots/confusion_matrix.png`
+![Confusion matrix](artifacts/plots/confusion_matrix.png)
