@@ -6,26 +6,30 @@ import os
 import tensorflow as tf
 from concurrent.futures import ThreadPoolExecutor
 
+# ========================
+# Funciones de Evaluación
+# ========================
+
 
 def parallel_predict(model, images_batch):
     """
-    Make predictions in parallel for a batch of images.
+    Realizar predicciones en paralelo para un lote de imágenes.
     """
     return model.predict(images_batch)
 
 
 def evaluate_model(model, test_dataset):
     """
-    Evaluate the model on test data with parallel processing.
+    Evaluar el modelo en datos de prueba con procesamiento paralelo.
     """
     AUTOTUNE = tf.data.AUTOTUNE
     test_dataset = test_dataset.prefetch(AUTOTUNE)
 
-    # Get predictions using parallel processing
+    # Obtener predicciones usando procesamiento paralelo
     y_pred = []
     y_true = []
 
-    # Create a thread pool for parallel prediction
+    # Crear un pool de hilos para predicción paralela
     with ThreadPoolExecutor(max_workers=os.cpu_count()) as executor:
         futures = []
 
@@ -33,34 +37,41 @@ def evaluate_model(model, test_dataset):
             futures.append(executor.submit(parallel_predict, model, images))
             y_true.extend(labels.numpy())
 
-        # Collect results
+        # Recolectar resultados
         for future in futures:
             predictions = future.result()
             y_pred.extend(predictions.flatten() > 0.5)
 
-    # Convert to numpy arrays
+    # Convertir a arrays numpy
     y_pred = np.array(y_pred)
     y_true = np.array(y_true)
 
-    # Print classification report
-    print("\nClassification Report:")
-    print(classification_report(y_true, y_pred, target_names=["No Tumor", "Tumor"]))
+    # Imprimir reporte de clasificación
+    print("\nReporte de Clasificación:")
+    print(
+        classification_report(y_true, y_pred, target_names=["Sin Tumor", "Con Tumor"])
+    )
 
     return {"y_true": y_true, "y_pred": y_pred}
+
+
+# ========================
+# Visualización
+# ========================
 
 
 def plot_confusion_matrix(
     y_true, y_pred, save_path="artifacts/plots/confusion_matrix.png"
 ):
     """
-    Plot confusion matrix.
+    Graficar matriz de confusión.
 
     Args:
-        y_true (np.ndarray): True labels
-        y_pred (np.ndarray): Predicted labels
-        save_path (str): Path to save the plot
+        y_true (np.ndarray): Etiquetas verdaderas
+        y_pred (np.ndarray): Etiquetas predichas
+        save_path (str): Ruta para guardar el gráfico
     """
-    # Create directory if it doesn't exist
+    # Crear directorio si no existe
     os.makedirs(os.path.dirname(save_path), exist_ok=True)
 
     cm = confusion_matrix(y_true, y_pred)
@@ -70,11 +81,11 @@ def plot_confusion_matrix(
         annot=True,
         fmt="d",
         cmap="Blues",
-        xticklabels=["No Tumor", "Tumor"],
-        yticklabels=["No Tumor", "Tumor"],
+        xticklabels=["Sin Tumor", "Con Tumor"],
+        yticklabels=["Sin Tumor", "Con Tumor"],
     )
-    plt.title("Confusion Matrix")
-    plt.ylabel("True Label")
-    plt.xlabel("Predicted Label")
+    plt.title("Matriz de Confusión")
+    plt.ylabel("Etiqueta Verdadera")
+    plt.xlabel("Etiqueta Predicha")
     plt.savefig(save_path)
     plt.close()
