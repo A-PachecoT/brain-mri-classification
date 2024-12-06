@@ -17,6 +17,40 @@ El conjunto de datos está organizado en dos carpetas:
 
 Cada resonancia es una imagen en escala de grises que muestra una vista transversal del cerebro. Las imágenes han sido preprocesadas y se ha eliminado el cráneo para enfocarse en el tejido cerebral donde pueden estar presentes los tumores.
 
+## Detalles Técnicos
+
+### Paralelismo y Optimización
+
+El proyecto implementa múltiples niveles de paralelismo basados en los principios descritos en [Parallel and Distributed Graph Neural Networks: An In-Depth Concurrency Analysis](https://arxiv.org/pdf/2205.09702), adaptados para el procesamiento de imágenes médicas:
+
+#### Paralelismo de Datos
+- **Mini-batch Processing**: Implementación de procesamiento por lotes para optimizar el uso de memoria y mejorar la convergencia
+  - Tamaño de lote: 32 imágenes
+  - Prefetch buffer para solapar CPU/GPU
+  - Caché de datos en memoria para acceso rápido
+
+#### Paralelismo de Hardware
+- **Multi-GPU Training**:
+  - Estrategia `MirroredStrategy` de TensorFlow para distribución automática
+  - Sincronización de gradientes entre GPUs
+  - Escalado dinámico del tamaño de lote según GPUs disponibles
+
+#### Optimizaciones de Rendimiento
+1. **Carga de Datos**:
+   - ThreadPoolExecutor para carga paralela de imágenes
+   - Número de workers igual a CPU cores disponibles
+   - Pipeline de datos optimizado con `tf.data.AUTOTUNE`
+
+2. **Computación**:
+   - Precisión mixta (float16/float32) para acelerar cálculos
+   - Optimización automática de operaciones tensoriales
+   - Gestión dinámica de memoria GPU
+
+3. **Predicción**:
+   - Predicción en paralelo usando ThreadPoolExecutor
+   - Batch processing para inferencia
+   - Balanceo automático de carga entre GPUs
+
 ## Estructura del Proyecto
 
 ```
@@ -88,7 +122,6 @@ Los resultados se guardan en:
 - Matriz de confusión: `artifacts/plots/confusion_matrix.png`
 ![Matriz de confusión](artifacts/plots/confusion_matrix.png)
 
-
 ## Créditos
 
-Este proyecto está basado en el notebook de Jupyter de [Anirudh Bansal](https://www.kaggle.com/anibansal) de su kernel de Kaggle [Brain MRI Classification](https://www.kaggle.com/code/anibansal/brain-mri-classification). El trabajo original ha sido reestructurado en un paquete Python apropiado con mejor organización y modularidad; y se optimizaron varios procesos para mejorar el rendimiento y la velocidad, usando técnicas de paralelización y optimización de hardware.
+Este proyecto está basado en el notebook de Jupyter de [Anirudh Bansal](https://www.kaggle.com/anibansal) con el dataset de Kaggle [Brain MRI Classification](https://www.kaggle.com/code/anibansal/brain-mri-classification). El trabajo original ha sido reestructurado en un paquete Python apropiado con mejor organización y modularidad; y se optimizaron varios procesos para mejorar el rendimiento y la velocidad, usando técnicas de paralelización y optimización de hardware.
