@@ -17,6 +17,43 @@ El conjunto de datos está organizado en dos carpetas:
 
 Cada resonancia es una imagen en escala de grises que muestra una vista transversal del cerebro. Las imágenes han sido preprocesadas y se ha eliminado el cráneo para enfocarse en el tejido cerebral donde pueden estar presentes los tumores.
 
+## Repositorio de Almacenamiento en Disco (RAD)
+
+El proyecto implementa un sistema de almacenamiento estructurado en disco (RAD) para gestionar eficientemente grandes volúmenes de datos de imágenes médicas. Esta implementación permite simular estructuras de datos en memoria mientras mantiene los datos en disco, optimizando el uso de recursos.
+
+### Características del RAD
+
+#### Estructura de Almacenamiento
+- **Formato HDF5**: Utiliza el formato jerárquico HDF5 para almacenar datos multidimensionales
+- **Metadatos JSON**: Mantiene un índice de metadatos para acceso rápido y mapeo de datos
+- **Almacenamiento Estructurado**:
+  ```
+  data/processed/
+  ├── image_data.h5     # Datos de imágenes y etiquetas
+  └── metadata.json     # Índices y metadatos
+  ```
+
+#### Gestión de Memoria
+- **Carga por Lotes**: Procesamiento de imágenes en mini-batches de 32 muestras
+- **Memoria Dinámica**: Datasets redimensionables para crecimiento eficiente
+- **Indexación Eficiente**: Sistema de mapeo para acceso rápido a datos
+
+#### Optimizaciones
+1. **I/O Eficiente**:
+   - Escritura secuencial por lotes
+   - Lectura paralela con ThreadPoolExecutor
+   - Buffer de prefetch para datos frecuentes
+
+2. **Gestión de Recursos**:
+   - Liberación automática de memoria
+   - Cierre seguro de archivos
+   - Manejo de excepciones robusto
+
+3. **Escalabilidad**:
+   - Soporte para conjuntos de datos grandes
+   - Crecimiento dinámico de datasets
+   - Procesamiento paralelo de E/S
+
 ## Detalles Técnicos
 
 ### Paralelismo y Optimización
