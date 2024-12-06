@@ -5,6 +5,103 @@ from sklearn.model_selection import train_test_split
 import tensorflow as tf
 from concurrent.futures import ThreadPoolExecutor
 import multiprocessing
+import h5py
+import json
+from pathlib import Path
+import shutil
+
+# ========================
+# Repositorio de Almacenamiento en Disco (RAD)
+# ========================
+
+
+class DiskStorageRepository:
+    """
+    Implementación de un Repositorio de Almacenamiento en Disco (RAD) para gestionar
+    grandes volúmenes de datos de imágenes médicas de manera eficiente.
+    """
+
+    def __init__(self, base_path="data/processed"):
+        self.base_path = Path(base_path)
+        self.metadata_file = self.base_path / "metadata.json"
+        self.data_file = self.base_path / "image_data.h5"
+        self.initialize_storage()
+
+    def initialize_storage(self):
+        """Inicializar la estructura del almacenamiento."""
+        self.base_path.mkdir(parents=True, exist_ok=True)
+        if not self.metadata_file.exists():
+            self._save_metadata({"num_samples": 0, "indices": {}})
+
+    def _save_metadata(self, metadata):
+        """Guardar metadatos en disco."""
+        with open(self.metadata_file, "w") as f:
+            json.dump(metadata, f)
+
+    def _load_metadata(self):
+        """Cargar metadatos desde disco."""
+        with open(self.metadata_file, "r") as f:
+            return json.load(f)
+
+    def store_batch(self, images, labels, batch_indices):
+        """
+        Almacenar un lote de imágenes y etiquetas en el RAD.
+
+        Args:
+            images: Array de imágenes numpy
+            labels: Array de etiquetas
+            batch_indices: Lista de índices para las imágenes
+        """
+        metadata = self._load_metadata()
+        current_size = 0
+
+        with h5py.File(self.data_file, "a") as f:
+            if "images" not in f:
+                f.create_dataset(
+                    "images", data=images, maxshape=(None, *images.shape[1:])
+                )
+                f.create_dataset("labels", data=labels, maxshape=(None,))
+            else:
+                current_size = f["images"].shape[0]
+                new_size = current_size + len(images)
+                f["images"].resize(new_size, axis=0)
+                f["labels"].resize(new_size, axis=0)
+                f["images"][current_size:] = images
+                f["labels"][current_size:] = labels
+
+            for idx, orig_idx in enumerate(batch_indices):
+                metadata["indices"][str(orig_idx)] = current_size + idx
+
+        metadata["num_samples"] = len(metadata["indices"])
+        self._save_metadata(metadata)
+
+    def get_batch(self, indices):
+        """
+        Recuperar un lote de imágenes y etiquetas del RAD.
+
+        Args:
+            indices: Lista de índices a recuperar
+
+        Returns:
+            tuple: (imágenes, etiquetas)
+        """
+        metadata = self._load_metadata()
+        storage_indices = [metadata["indices"][str(i)] for i in indices]
+
+        with h5py.File(self.data_file, "r") as f:
+            images = f["images"][storage_indices]
+            labels = f["labels"][storage_indices]
+
+        return images, labels
+
+    def clear_storage(self):
+        """Limpiar todo el almacenamiento en disco."""
+        if self.data_file.exists():
+            self.data_file.unlink()
+        if self.metadata_file.exists():
+            self.metadata_file.unlink()
+        self.initialize_storage()
+
 
 # ========================
 # Funciones de Carga
@@ -32,34 +129,62 @@ def load_single_image(args):
         return None, None
 
 
-def load_data(data_dir="images", img_size=(128, 128)):
+def load_data(data_dir="images", img_size=(128, 128), batch_size=32):
     """
-    Cargar y preprocesar imágenes de resonancia magnética usando procesamiento paralelo.
+    Cargar y preprocesar imágenes de resonancia magnética usando procesamiento paralelo
+    y almacenamiento en disco.
     """
+    # Inicializar el RAD
+    rad = DiskStorageRepository()
+    rad.clear_storage()  # Limpiar almacenamiento anterior
+
     # Preparar rutas de imágenes y etiquetas
     image_data = []
 
+    # Verificar que el directorio existe
+    if not os.path.exists(data_dir):
+        raise FileNotFoundError(f"El directorio {data_dir} no existe")
+
     # Recolectar rutas para imágenes positivas (con tumor)
     yes_path = os.path.join(data_dir, "yes")
-    for img_name in os.listdir(yes_path):
-        image_data.append((os.path.join(yes_path, img_name), img_size, 1))
+    if os.path.exists(yes_path):
+        for img_name in os.listdir(yes_path):
+            image_data.append((os.path.join(yes_path, img_name), img_size, 1))
 
     # Recolectar rutas para imágenes negativas (sin tumor)
     no_path = os.path.join(data_dir, "no")
-    for img_name in os.listdir(no_path):
-        image_data.append((os.path.join(no_path, img_name), img_size, 0))
+    if os.path.exists(no_path):
+        for img_name in os.listdir(no_path):
+            image_data.append((os.path.join(no_path, img_name), img_size, 0))
 
-    # Usar procesamiento paralelo para cargar imágenes
+    if not image_data:
+        raise ValueError(f"No se encontraron imágenes en {data_dir}")
+
+    # Procesar y almacenar imágenes en lotes usando RAD
     num_workers = multiprocessing.cpu_count()
-    with ThreadPoolExecutor(max_workers=num_workers) as executor:
-        results = list(executor.map(load_single_image, image_data))
 
-    # Filtrar valores None y separar imágenes y etiquetas
-    valid_results = [(img, label) for img, label in results if img is not None]
-    images, labels = zip(*valid_results)
+    for i in range(0, len(image_data), batch_size):
+        batch_data = image_data[i : i + batch_size]
+        with ThreadPoolExecutor(max_workers=num_workers) as executor:
+            results = list(executor.map(load_single_image, batch_data))
 
-    X = np.array(images)
-    y = np.array(labels)
+        # Filtrar resultados válidos
+        valid_results = [(img, label) for img, label in results if img is not None]
+        if valid_results:
+            batch_images, batch_labels = zip(*valid_results)
+            batch_images = np.array(batch_images)
+            batch_labels = np.array(batch_labels)
+            batch_indices = range(i, i + len(valid_results))
+            rad.store_batch(batch_images, batch_labels, batch_indices)
+
+    # Cargar todos los datos del RAD
+    metadata = rad._load_metadata()
+    all_indices = list(range(metadata["num_samples"]))
+
+    if not all_indices:
+        raise ValueError("No se pudieron cargar imágenes válidas")
+
+    X, y = rad.get_batch(all_indices)
 
     # Dividir los datos
     X_train, X_test, y_train, y_test = train_test_split(
