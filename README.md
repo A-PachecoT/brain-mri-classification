@@ -1,93 +1,94 @@
-# Brain MRI Classification
+# Clasificación de Resonancias Magnéticas Cerebrales
 
-A deep learning project for classifying brain MRI scans to detect tumors using TensorFlow.
+Un proyecto de aprendizaje profundo para clasificar resonancias magnéticas cerebrales y detectar tumores usando TensorFlow.
 
-## Credits
+## Conjunto de Datos
 
-This project is based on the Jupyter notebook by [Anirudh Bansal](https://www.kaggle.com/anibansal) from his Kaggle kernel [Brain MRI Classification](https://www.kaggle.com/code/anibansal/brain-mri-classification). The original work has been restructured into a proper Python package with improved organization and modularity.
+El conjunto de datos utilizado en este proyecto es [Brain MRI Images for Brain Tumor Detection](https://www.kaggle.com/datasets/navoneel/brain-mri-images-for-brain-tumor-detection/data) de Kaggle. Contiene:
 
-## Dataset
+- 253 resonancias magnéticas cerebrales en total
+- 155 resonancias con tumores (casos positivos)
+- 98 resonancias sin tumores (casos negativos)
+- Todas las imágenes están en formato JPG
 
-The dataset used in this project is the [Brain MRI Images for Brain Tumor Detection](https://www.kaggle.com/datasets/navoneel/brain-mri-images-for-brain-tumor-detection/data) from Kaggle. It contains:
+El conjunto de datos está organizado en dos carpetas:
+- `yes/`: Contiene resonancias magnéticas con tumores
+- `no/`: Contiene resonancias magnéticas sin tumores
 
-- 253 brain MRI scans in total
-- 155 scans with tumors (positive cases)
-- 98 scans without tumors (negative cases)
-- All images are in JPG format
+Cada resonancia es una imagen en escala de grises que muestra una vista transversal del cerebro. Las imágenes han sido preprocesadas y se ha eliminado el cráneo para enfocarse en el tejido cerebral donde pueden estar presentes los tumores.
 
-The dataset is organized into two folders:
-- `yes/`: Contains MRI scans with tumors
-- `no/`: Contains MRI scans without tumors
-
-Each scan is a grayscale image showing a cross-sectional view of the brain. The images have been pre-processed and skull-stripped to focus on the brain tissue where tumors may be present.
-
-## Project Structure
+## Estructura del Proyecto
 
 ```
 .
-├── artifacts/          # Generated artifacts
-│   ├── models/        # Saved models
-│   └── plots/         # Generated plots and visualizations
-├── data/              # Data directory
-│   ├── processed/     # Processed dataset
-│   └── raw/          # Raw dataset
-│       ├── yes/      # MRI scans with tumors
-│       └── no/       # MRI scans without tumors
-├── notebooks/         # Jupyter notebooks
-├── src/              # Source code
-│   ├── data/         # Data loading and preprocessing
-│   ├── models/       # Model architecture
-│   ├── utils/        # Utility functions
-│   └── main.py       # Main script
-└── requirements.txt   # Project dependencies
+├── artifacts/          # Artefactos generados
+│   ├── models/        # Modelos guardados
+│   └── plots/         # Gráficos y visualizaciones generadas
+├── data/              # Directorio de datos
+│   ├── processed/     # Conjunto de datos procesado
+│   └── raw/          # Conjunto de datos sin procesar
+│       ├── yes/      # Resonancias con tumores
+│       └── no/       # Resonancias sin tumores
+├── notebooks/         # Notebooks de Jupyter
+├── src/              # Código fuente
+│   ├── data/         # Carga y preprocesamiento de datos
+│   ├── models/       # Arquitectura del modelo
+│   ├── utils/        # Funciones de utilidad
+│   └── main.py       # Script principal
+└── requirements.txt   # Dependencias del proyecto
 ```
 
-## Setup
+## Configuración
 
-1. Create a virtual environment:
+1. Crear un entorno virtual:
 ```bash
 conda create -n mri-classification python=3.8
 conda activate mri-classification
 ```
 
-2. Install dependencies:
+2. Instalar dependencias:
 ```bash
 pip install -r requirements.txt
 ```
 
-## Usage
+## Uso
 
-Run the training pipeline:
+Ejecutar el pipeline de entrenamiento:
 ```bash
 python src/main.py
 ```
 
-## Model Architecture
+## Arquitectura del Modelo
 
-The model uses a CNN architecture with:
-- 4 convolutional layers
-- Max pooling layers
-- Dropout for regularization
-- Dense layers for classification
+El modelo utiliza una arquitectura CNN con:
+- 4 capas convolucionales
+- Capas de max pooling
+- Dropout para regularización
+- Capas densas para clasificación
 
-## Performance Features
+## Características de Rendimiento
 
-- Multi-GPU training support with MirroredStrategy
-- Mixed precision training for faster computation
-- Parallel data loading and preprocessing
-- ThreadPoolExecutor for parallel predictions
-- Automatic hardware optimization
+- Soporte para entrenamiento multi-GPU con MirroredStrategy
+- Entrenamiento con precisión mixta para cálculos más rápidos
+- Carga y preprocesamiento de datos en paralelo
+- ThreadPoolExecutor para predicciones en paralelo
+- Optimización automática de hardware
 
-## Results
+## Resultados
 
-The model achieves:
-- 75% precision for no-tumor cases
-- 71% precision for tumor cases
-- 73% overall accuracy
+El modelo alcanza:
+- 75% de precisión para casos sin tumor
+- 71% de precisión para casos con tumor
+- 73% de precisión general
 
-Results are saved in:
-- Model weights: `artifacts/models/best_model.h5`
-- Training plots: `artifacts/plots/training_history.png`
-![Training plots](artifacts/plots/training_history.png)
-- Confusion matrix: `artifacts/plots/confusion_matrix.png`
-![Confusion matrix](artifacts/plots/confusion_matrix.png)
+Los resultados se guardan en:
+- Pesos del modelo: `artifacts/models/best_model.h5`
+- Gráficos de entrenamiento: `artifacts/plots/training_history.png`
+![Gráficos de entrenamiento](artifacts/plots/training_history.png)
+- Matriz de confusión: `artifacts/plots/confusion_matrix.png`
+![Matriz de confusión](artifacts/plots/confusion_matrix.png)
+
+
+## Créditos
+
+Este proyecto está basado en el notebook de Jupyter de [Anirudh Bansal](https://www.kaggle.com/anibansal) de su kernel de Kaggle [Brain MRI Classification](https://www.kaggle.com/code/anibansal/brain-mri-classification). El trabajo original ha sido reestructurado en un paquete Python apropiado con mejor organización y modularidad; y se optimizaron varios procesos para mejorar el rendimiento y la velocidad, usando técnicas de paralelización y optimización de hardware.
