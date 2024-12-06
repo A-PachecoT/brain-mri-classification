@@ -3,27 +3,40 @@ import matplotlib.pyplot as plt
 from sklearn.metrics import confusion_matrix, classification_report
 import seaborn as sns
 import os
+import tensorflow as tf
+from concurrent.futures import ThreadPoolExecutor
+
+
+def parallel_predict(model, images_batch):
+    """
+    Make predictions in parallel for a batch of images.
+    """
+    return model.predict(images_batch)
 
 
 def evaluate_model(model, test_dataset):
     """
-    Evaluate the model on test data and print metrics.
-
-    Args:
-        model (tf.keras.Model): Trained model
-        test_dataset (tf.data.Dataset): Test dataset
-
-    Returns:
-        dict: Dictionary containing evaluation metrics
+    Evaluate the model on test data with parallel processing.
     """
-    # Get predictions
+    AUTOTUNE = tf.data.AUTOTUNE
+    test_dataset = test_dataset.prefetch(AUTOTUNE)
+
+    # Get predictions using parallel processing
     y_pred = []
     y_true = []
 
-    for images, labels in test_dataset:
-        predictions = model.predict(images)
-        y_pred.extend(predictions.flatten() > 0.5)
-        y_true.extend(labels.numpy())
+    # Create a thread pool for parallel prediction
+    with ThreadPoolExecutor(max_workers=os.cpu_count()) as executor:
+        futures = []
+
+        for images, labels in test_dataset:
+            futures.append(executor.submit(parallel_predict, model, images))
+            y_true.extend(labels.numpy())
+
+        # Collect results
+        for future in futures:
+            predictions = future.result()
+            y_pred.extend(predictions.flatten() > 0.5)
 
     # Convert to numpy arrays
     y_pred = np.array(y_pred)

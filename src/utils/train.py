@@ -4,26 +4,45 @@ import matplotlib.pyplot as plt
 import os
 
 
+def setup_multi_gpu():
+    """
+    Setup multi-GPU strategy if available.
+
+    Returns:
+        tf.distribute.Strategy: Distribution strategy
+    """
+    try:
+        # Check for GPUs
+        gpus = tf.config.list_physical_devices("GPU")
+        if len(gpus) > 1:
+            strategy = tf.distribute.MirroredStrategy()
+            print(f"Training using {len(gpus)} GPUs")
+        else:
+            strategy = tf.distribute.get_strategy()  # Default strategy
+            print("Training using default strategy")
+        return strategy
+    except:
+        return tf.distribute.get_strategy()  # Default strategy
+
+
 def train_model(
     model, train_dataset, val_dataset, epochs=50, checkpoint_dir="artifacts/models"
 ):
     """
-    Train the model with early stopping and model checkpointing.
-
-    Args:
-        model (tf.keras.Model): The model to train
-        train_dataset (tf.data.Dataset): Training dataset
-        val_dataset (tf.data.Dataset): Validation dataset
-        epochs (int): Number of epochs to train
-        checkpoint_dir (str): Directory to save model checkpoints
-
-    Returns:
-        history: Training history
+    Train the model with parallel processing support.
     """
     # Create checkpoint directory if it doesn't exist
     os.makedirs(checkpoint_dir, exist_ok=True)
 
-    # Callbacks
+    # Enable mixed precision training for faster computation
+    tf.keras.mixed_precision.set_global_policy("mixed_float16")
+
+    # Optimize dataset performance
+    AUTOTUNE = tf.data.AUTOTUNE
+    train_dataset = train_dataset.prefetch(AUTOTUNE)
+    val_dataset = val_dataset.prefetch(AUTOTUNE)
+
+    # Callbacks with parallel processing
     checkpoint_path = os.path.join(checkpoint_dir, "best_model.h5")
     callbacks = [
         ModelCheckpoint(
@@ -36,11 +55,19 @@ def train_model(
         EarlyStopping(
             monitor="val_loss", patience=10, restore_best_weights=True, verbose=1
         ),
+        tf.keras.callbacks.ReduceLROnPlateau(
+            monitor="val_loss", factor=0.2, patience=5, min_lr=1e-6
+        ),
     ]
 
     # Train the model
     history = model.fit(
-        train_dataset, validation_data=val_dataset, epochs=epochs, callbacks=callbacks
+        train_dataset,
+        validation_data=val_dataset,
+        epochs=epochs,
+        callbacks=callbacks,
+        workers=os.cpu_count(),  # Parallel data loading
+        use_multiprocessing=True,
     )
 
     return history

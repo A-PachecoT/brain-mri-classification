@@ -10,15 +10,20 @@ def main():
     # Set random seeds for reproducibility
     tf.random.set_seed(42)
 
-    # Load and preprocess data
+    # Enable memory growth for GPUs
+    for gpu in tf.config.list_physical_devices("GPU"):
+        tf.config.experimental.set_memory_growth(gpu, True)
+
+    # Load and preprocess data with parallel processing
     print("Loading data...")
     X_train, X_test, y_train, y_test = load_data(data_dir="data/raw")
 
-    # Create datasets
-    train_dataset = create_dataset(X_train, y_train)
-    test_dataset = create_dataset(X_test, y_test)
+    # Create optimized datasets with parallel processing
+    print("Creating datasets...")
+    train_dataset = create_dataset(X_train, y_train, is_training=True)
+    test_dataset = create_dataset(X_test, y_test, is_training=False)
 
-    # Create and compile model
+    # Create and compile model with multi-GPU support
     print("Creating model...")
     model = create_model()
     model.summary()
