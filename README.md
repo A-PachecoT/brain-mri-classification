@@ -70,6 +70,14 @@ The model uses a CNN architecture with:
 - Dropout for regularization
 - Dense layers for classification
 
+## Performance Features
+
+- Multi-GPU training support with MirroredStrategy
+- Mixed precision training for faster computation
+- Parallel data loading and preprocessing
+- ThreadPoolExecutor for parallel predictions
+- Automatic hardware optimization
+
 ## Results
 
 The model achieves:
