@@ -6,6 +6,21 @@ A deep learning project for classifying brain MRI scans to detect tumors using T
 
 This project is based on the Jupyter notebook by [Anirudh Bansal](https://www.kaggle.com/anibansal) from his Kaggle kernel [Brain MRI Classification](https://www.kaggle.com/code/anibansal/brain-mri-classification). The original work has been restructured into a proper Python package with improved organization and modularity.
 
+## Dataset
+
+The dataset used in this project is the [Brain MRI Images for Brain Tumor Detection](https://www.kaggle.com/datasets/navoneel/brain-mri-images-for-brain-tumor-detection/data) from Kaggle. It contains:
+
+- 253 brain MRI scans in total
+- 155 scans with tumors (positive cases)
+- 98 scans without tumors (negative cases)
+- All images are in JPG format
+
+The dataset is organized into two folders:
+- `yes/`: Contains MRI scans with tumors
+- `no/`: Contains MRI scans without tumors
+
+Each scan is a grayscale image showing a cross-sectional view of the brain. The images have been pre-processed and skull-stripped to focus on the brain tissue where tumors may be present.
+
 ## Project Structure
 
 ```
@@ -65,4 +80,4 @@ The model achieves:
 Results are saved in:
 - Model weights: `artifacts/models/best_model.h5`
 - Training plots: `artifacts/plots/training_history.png`
-- Confusion matrix: `artifacts/plots/confusion_matrix.png` 
+- Confusion matrix: `artifacts/plots/confusion_matrix.png`
