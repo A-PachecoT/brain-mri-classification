@@ -155,9 +155,9 @@ El modelo alcanza:
 Los resultados se guardan en:
 - Pesos del modelo: `artifacts/models/best_model.h5`
 - Gráficos de entrenamiento: `artifacts/plots/training_history.png`
-![Gráficos de entrenamiento](artifacts/plots/training_history.png)
+![Gráficos de entrenamiento](images/training_history.png)
 - Matriz de confusión: `artifacts/plots/confusion_matrix.png`
-![Matriz de confusión](artifacts/plots/confusion_matrix.png)
+![Matriz de confusión](images/confusion_matrix.png)
 
 ## Créditos
 
