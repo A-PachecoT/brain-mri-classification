@@ -5,44 +5,60 @@ from models.model import create_model
 from utils.train import train_model, plot_training_history
 from utils.evaluate import evaluate_model, plot_confusion_matrix
 
+# ========================
+# Configuración Principal
+# ========================
+
 
 def main():
-    # Set random seeds for reproducibility
+    # Establecer semillas aleatorias para reproducibilidad
     tf.random.set_seed(42)
 
-    # Enable memory growth for GPUs
+    # Habilitar crecimiento de memoria para GPUs
     for gpu in tf.config.list_physical_devices("GPU"):
         tf.config.experimental.set_memory_growth(gpu, True)
 
-    # Load and preprocess data with parallel processing
+    # ========================
+    # Carga de Datos
+    # ========================
+
+    # Cargar y preprocesar datos con procesamiento paralelo
     print("Loading data...")
     X_train, X_test, y_train, y_test = load_data(data_dir="data/raw")
 
-    # Create optimized datasets with parallel processing
+    # Crear datasets optimizados con procesamiento paralelo
     print("Creating datasets...")
     train_dataset = create_dataset(X_train, y_train, is_training=True)
     test_dataset = create_dataset(X_test, y_test, is_training=False)
 
-    # Create and compile model with multi-GPU support
+    # ========================
+    # Modelo y Entrenamiento
+    # ========================
+
+    # Crear y compilar modelo con soporte multi-GPU
     print("Creating model...")
     model = create_model()
     model.summary()
 
-    # Train the model
+    # Entrenar el modelo
     print("\nTraining model...")
     history = train_model(
         model, train_dataset, test_dataset, checkpoint_dir="artifacts/models"
     )
 
-    # Plot training history
+    # ========================
+    # Visualización y Evaluación
+    # ========================
+
+    # Graficar historial de entrenamiento
     print("Plotting training history...")
     plot_training_history(history, save_path="artifacts/plots/training_history.png")
 
-    # Evaluate the model
+    # Evaluar el modelo
     print("\nEvaluating model...")
     results = evaluate_model(model, test_dataset)
 
-    # Plot confusion matrix
+    # Graficar matriz de confusión
     print("Plotting confusion matrix...")
     plot_confusion_matrix(
         results["y_true"],
