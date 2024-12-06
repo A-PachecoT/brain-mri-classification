@@ -4,7 +4,6 @@ __pycache__/
 *$py.class
 *.so
 .Python
-env/
 build/
 develop-eggs/
 dist/
@@ -21,13 +20,10 @@ wheels/
 .installed.cfg
 *.egg
 
-# Jupyter Notebook
-.ipynb_checkpoints
-
 # Virtual Environment
 venv/
+env/
 ENV/
-.env
 
 # IDE
 .idea/
@@ -36,7 +32,7 @@ ENV/
 *.swo
 
 # Project specific
-checkpoints/
+data/processed/
+artifacts/
 *.h5
-*.png
-logs/ 
+*.log
