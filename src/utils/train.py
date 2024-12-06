@@ -3,46 +3,55 @@ from tensorflow.keras.callbacks import ModelCheckpoint, EarlyStopping
 import matplotlib.pyplot as plt
 import os
 
+# ========================
+# Configuración GPU
+# ========================
+
 
 def setup_multi_gpu():
     """
-    Setup multi-GPU strategy if available.
+    Configurar estrategia multi-GPU si está disponible.
 
     Returns:
-        tf.distribute.Strategy: Distribution strategy
+        tf.distribute.Strategy: Estrategia de distribución
     """
     try:
-        # Check for GPUs
+        # Verificar GPUs disponibles
         gpus = tf.config.list_physical_devices("GPU")
         if len(gpus) > 1:
             strategy = tf.distribute.MirroredStrategy()
-            print(f"Training using {len(gpus)} GPUs")
+            print(f"Entrenando usando {len(gpus)} GPUs")
         else:
-            strategy = tf.distribute.get_strategy()  # Default strategy
-            print("Training using default strategy")
+            strategy = tf.distribute.get_strategy()  # Estrategia por defecto
+            print("Entrenando usando estrategia por defecto")
         return strategy
     except:
-        return tf.distribute.get_strategy()  # Default strategy
+        return tf.distribute.get_strategy()  # Estrategia por defecto
+
+
+# ========================
+# Entrenamiento
+# ========================
 
 
 def train_model(
     model, train_dataset, val_dataset, epochs=50, checkpoint_dir="artifacts/models"
 ):
     """
-    Train the model with parallel processing support.
+    Entrenar el modelo con soporte de procesamiento paralelo.
     """
-    # Create checkpoint directory if it doesn't exist
+    # Crear directorio de checkpoints si no existe
     os.makedirs(checkpoint_dir, exist_ok=True)
 
-    # Enable mixed precision training for faster computation
+    # Habilitar entrenamiento con precisión mixta para cálculos más rápidos
     tf.keras.mixed_precision.set_global_policy("mixed_float16")
 
-    # Optimize dataset performance
+    # Optimizar rendimiento del dataset
     AUTOTUNE = tf.data.AUTOTUNE
     train_dataset = train_dataset.prefetch(AUTOTUNE)
     val_dataset = val_dataset.prefetch(AUTOTUNE)
 
-    # Callbacks with parallel processing
+    # Callbacks con procesamiento paralelo
     checkpoint_path = os.path.join(checkpoint_dir, "best_model.h5")
     callbacks = [
         ModelCheckpoint(
@@ -60,46 +69,51 @@ def train_model(
         ),
     ]
 
-    # Train the model
+    # Entrenar el modelo
     history = model.fit(
         train_dataset,
         validation_data=val_dataset,
         epochs=epochs,
         callbacks=callbacks,
-        workers=os.cpu_count(),  # Parallel data loading
+        workers=os.cpu_count(),  # Carga de datos en paralelo
         use_multiprocessing=True,
     )
 
     return history
 
 
+# ========================
+# Visualización
+# ========================
+
+
 def plot_training_history(history, save_path="artifacts/plots/training_history.png"):
     """
-    Plot training history showing accuracy and loss curves.
+    Graficar historial de entrenamiento mostrando curvas de precisión y pérdida.
 
     Args:
-        history: Training history from model.fit()
-        save_path (str): Path to save the plot
+        history: Historial de entrenamiento de model.fit()
+        save_path (str): Ruta para guardar el gráfico
     """
-    # Create directory if it doesn't exist
+    # Crear directorio si no existe
     os.makedirs(os.path.dirname(save_path), exist_ok=True)
 
     fig, (ax1, ax2) = plt.subplots(1, 2, figsize=(12, 4))
 
-    # Accuracy plot
-    ax1.plot(history.history["accuracy"], label="Training")
-    ax1.plot(history.history["val_accuracy"], label="Validation")
-    ax1.set_title("Model Accuracy")
-    ax1.set_xlabel("Epoch")
-    ax1.set_ylabel("Accuracy")
+    # Gráfico de precisión
+    ax1.plot(history.history["accuracy"], label="Entrenamiento")
+    ax1.plot(history.history["val_accuracy"], label="Validación")
+    ax1.set_title("Precisión del Modelo")
+    ax1.set_xlabel("Época")
+    ax1.set_ylabel("Precisión")
     ax1.legend()
 
-    # Loss plot
-    ax2.plot(history.history["loss"], label="Training")
-    ax2.plot(history.history["val_loss"], label="Validation")
-    ax2.set_title("Model Loss")
-    ax2.set_xlabel("Epoch")
-    ax2.set_ylabel("Loss")
+    # Gráfico de pérdida
+    ax2.plot(history.history["loss"], label="Entrenamiento")
+    ax2.plot(history.history["val_loss"], label="Validación")
+    ax2.set_title("Pérdida del Modelo")
+    ax2.set_xlabel("Época")
+    ax2.set_ylabel("Pérdida")
     ax2.legend()
 
     plt.tight_layout()
