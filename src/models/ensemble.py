@@ -1,5 +1,5 @@
 import tensorflow as tf
-from concurrent.futures import ProcessPoolExecutor
+from concurrent.futures import ThreadPoolExecutor
 import numpy as np
 from .model import create_model
 
@@ -8,9 +8,24 @@ class ParallelEnsemble:
     def __init__(self, n_models=3):
         self.n_models = n_models
         self.models = []
-        self.strategy = tf.distribute.MirroredStrategy()
 
-    def train_model_parallel(self, model_id, train_dataset, val_dataset):
+        # Detectar GPUs disponibles
+        gpus = tf.config.list_physical_devices("GPU")
+        if gpus:
+            self.strategy = tf.distribute.MirroredStrategy()
+            print(f"Usando {len(gpus)} GPU(s)")
+        else:
+            self.strategy = tf.distribute.get_strategy()
+            print("GPU no disponible, usando CPU")
+
+        # Configurar crecimiento de memoria
+        for gpu in gpus:
+            try:
+                tf.config.experimental.set_memory_growth(gpu, True)
+            except:
+                pass
+
+    def _train_model(self, train_dataset, val_dataset):
         """Entrena un modelo individual del ensemble y retorna su accuracy"""
         with self.strategy.scope():
             model = create_model()
@@ -25,12 +40,10 @@ class ParallelEnsemble:
 
     def train(self, train_dataset, val_dataset):
         """Entrena múltiples modelos en paralelo y guarda sus pesos"""
-        with ProcessPoolExecutor() as executor:
+        with ThreadPoolExecutor(max_workers=self.n_models) as executor:
             futures = []
-            for i in range(self.n_models):
-                future = executor.submit(
-                    self.train_model_parallel, i, train_dataset, val_dataset
-                )
+            for _ in range(self.n_models):
+                future = executor.submit(self._train_model, train_dataset, val_dataset)
                 futures.append(future)
 
             # Guardar modelos y sus accuracies
