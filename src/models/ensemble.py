@@ -20,6 +20,8 @@ class ParallelEnsemble:
         self.models = []
         self.batch_size = batch_size
         self.verbose = verbose
+        self.model_dir = "artifacts/models/ensemble"
+        os.makedirs(self.model_dir, exist_ok=True)
 
         # Detectar GPUs y CPUs disponibles
         self.gpus = tf.config.list_physical_devices("GPU")
@@ -83,6 +85,48 @@ class ParallelEnsemble:
     def _predict_tf_function(self, model, batch):
         """Función TF optimizada para predicción"""
         return model(batch, training=False)
+
+    def save_models(self):
+        """Guarda los modelos del ensemble y sus pesos"""
+        logger.info("Guardando modelos del ensemble...")
+
+        # Guardar pesos del ensemble
+        weights_path = os.path.join(self.model_dir, "ensemble_weights.npy")
+        np.save(weights_path, self.weights)
+
+        # Guardar cada modelo
+        for i, model in enumerate(self.models):
+            model_path = os.path.join(self.model_dir, f"model_{i+1}")
+            model.save(model_path)
+
+        logger.info(f"✓ {len(self.models)} modelos guardados en {self.model_dir}")
+
+    def load_models(self):
+        """Carga los modelos del ensemble y sus pesos"""
+        logger.info("Cargando modelos del ensemble...")
+
+        try:
+            # Cargar pesos del ensemble
+            weights_path = os.path.join(self.model_dir, "ensemble_weights.npy")
+            self.weights = np.load(weights_path)
+
+            # Cargar modelos
+            self.models = []
+            i = 1
+            while True:
+                model_path = os.path.join(self.model_dir, f"model_{i}")
+                if not os.path.exists(model_path):
+                    break
+                model = tf.keras.models.load_model(model_path)
+                self.models.append(model)
+                i += 1
+
+            logger.info(f"✓ {len(self.models)} modelos cargados")
+            return True
+
+        except Exception as e:
+            logger.error(f"Error cargando modelos: {str(e)}")
+            return False
 
     def train(self, train_dataset, val_dataset, epochs=50):
         """Entrena múltiples modelos en paralelo con configuraciones diversas"""
@@ -202,6 +246,9 @@ class ParallelEnsemble:
                     f"  Recall: {rec:.4f}\n"
                     f"  Score Combinado: {self.weights[i-1]:.4f}"
                 )
+
+        # Guardar modelos al finalizar entrenamiento
+        self.save_models()
 
     def predict(self, X, y):
         """
