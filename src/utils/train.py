@@ -37,7 +37,7 @@ def setup_multi_gpu():
 
 
 def train_model(
-    model, train_dataset, val_dataset, epochs=50, checkpoint_dir="artifacts/models"
+    model, train_dataset, val_dataset, checkpoint_dir="artifacts/models", epochs=50
 ):
     """
     Entrenar el modelo con soporte de procesamiento paralelo.
@@ -97,6 +97,7 @@ def train_model(
         callbacks=callbacks,
         workers=os.cpu_count(),
         use_multiprocessing=True,
+        verbose=1,
     )
 
     logger.info("Entrenamiento completado")

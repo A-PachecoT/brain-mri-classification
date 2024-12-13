@@ -23,7 +23,7 @@ def main():
     # ========================
     # Configuración General
     # ========================
-    EPOCHS = 12
+    EPOCHS = 3
     BATCH_SIZE = 32
 
     logger.info("=" * 50)
@@ -102,7 +102,7 @@ def main():
 
     # Evaluar ensemble
     logger.info("\nEvaluando ensemble...")
-    y_pred_ensemble, ensemble_accuracy = ensemble.predict(X_test, y_test)
+    y_pred_ensemble, metrics = ensemble.predict(X_test, y_test)
     plot_confusion_matrix(
         y_test,
         y_pred_ensemble,
@@ -115,7 +115,9 @@ def main():
     logger.info("\nRESUMEN DE ENTRENAMIENTO")
     logger.info("=" * 30)
     logger.info(f"Precisión modelo base: {results['accuracy']:.4f}")
-    logger.info(f"Precisión ensemble: {ensemble_accuracy:.4f}")
+    logger.info(f"Precisión ensemble: {metrics['accuracy']:.4f}")
+    logger.info(f"Precision ensemble: {metrics['precision']:.4f}")
+    logger.info(f"Recall ensemble: {metrics['recall']:.4f}")
     logger.info("\nPesos de los modelos:")
     for i, weight in enumerate(ensemble.weights, 1):
         logger.info(f"  Modelo {i}: {weight:.4f}")
