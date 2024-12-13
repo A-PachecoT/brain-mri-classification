@@ -20,6 +20,12 @@ os.environ["TF_CPP_MIN_LOG_LEVEL"] = "2"
 
 
 def main():
+    # ========================
+    # Configuración General
+    # ========================
+    EPOCHS = 12
+    BATCH_SIZE = 32
+
     logger.info("=" * 50)
     logger.info("INICIANDO CLASIFICACIÓN DE RESONANCIAS MAGNÉTICAS")
     logger.info("=" * 50)
@@ -64,7 +70,11 @@ def main():
 
     logger.info("\nEntrenando modelo base...")
     history = train_model(
-        model, train_dataset, test_dataset, checkpoint_dir="artifacts/models"
+        model,
+        train_dataset,
+        test_dataset,
+        checkpoint_dir="artifacts/models",
+        epochs=EPOCHS,
     )
 
     logger.info("Generando visualizaciones...")
@@ -88,7 +98,7 @@ def main():
     ensemble = ParallelEnsemble(n_models=3, verbose=1)
 
     logger.info("Entrenando modelos del ensemble...")
-    ensemble.train(train_dataset, test_dataset)
+    ensemble.train(train_dataset, test_dataset, epochs=EPOCHS)
 
     # Evaluar ensemble
     logger.info("\nEvaluando ensemble...")
