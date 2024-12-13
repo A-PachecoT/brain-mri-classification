@@ -1,5 +1,8 @@
 import tensorflow as tf
 from tensorflow.keras import layers, models
+import logging
+
+logger = logging.getLogger("MRI-Classification")
 
 # ========================
 # Definición del Modelo
@@ -18,6 +21,7 @@ def create_model(input_shape=(128, 128, 3)):
     )
 
     with strategy.scope():
+        logger.info("Construyendo arquitectura CNN...")
         # ========================
         # Arquitectura CNN
         # ========================
@@ -46,6 +50,7 @@ def create_model(input_shape=(128, 128, 3)):
         optimizer = tf.keras.optimizers.Adam()
         optimizer = tf.keras.mixed_precision.LossScaleOptimizer(optimizer)
 
+        logger.info("Compilando modelo...")
         model.compile(
             optimizer=optimizer, loss="binary_crossentropy", metrics=["accuracy"]
         )

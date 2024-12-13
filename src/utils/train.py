@@ -2,6 +2,9 @@ import tensorflow as tf
 from tensorflow.keras.callbacks import ModelCheckpoint, EarlyStopping
 import matplotlib.pyplot as plt
 import os
+import logging
+
+logger = logging.getLogger("MRI-Classification")
 
 # ========================
 # Configuración GPU
@@ -16,17 +19,16 @@ def setup_multi_gpu():
         tf.distribute.Strategy: Estrategia de distribución
     """
     try:
-        # Verificar GPUs disponibles
         gpus = tf.config.list_physical_devices("GPU")
         if len(gpus) > 1:
             strategy = tf.distribute.MirroredStrategy()
-            print(f"Entrenando usando {len(gpus)} GPUs")
+            logger.info(f"Configurando entrenamiento para {len(gpus)} GPUs")
         else:
-            strategy = tf.distribute.get_strategy()  # Estrategia por defecto
-            print("Entrenando usando estrategia por defecto")
+            strategy = tf.distribute.get_strategy()
+            logger.info("Usando estrategia de entrenamiento por defecto")
         return strategy
     except:
-        return tf.distribute.get_strategy()  # Estrategia por defecto
+        return tf.distribute.get_strategy()
 
 
 # ========================
@@ -40,10 +42,10 @@ def train_model(
     """
     Entrenar el modelo con soporte de procesamiento paralelo.
     """
-    # Crear directorio de checkpoints si no existe
+    # Crear directorio de checkpoints
     os.makedirs(checkpoint_dir, exist_ok=True)
 
-    # Habilitar entrenamiento con precisión mixta para cálculos más rápidos
+    # Habilitar entrenamiento con precisión mixta
     tf.keras.mixed_precision.set_global_policy("mixed_float16")
 
     # Optimizar rendimiento del dataset
@@ -51,7 +53,7 @@ def train_model(
     train_dataset = train_dataset.prefetch(AUTOTUNE)
     val_dataset = val_dataset.prefetch(AUTOTUNE)
 
-    # Callbacks con procesamiento paralelo
+    # Configurar callbacks
     checkpoint_path = os.path.join(checkpoint_dir, "best_model.h5")
     callbacks = [
         ModelCheckpoint(
@@ -62,23 +64,32 @@ def train_model(
             verbose=1,
         ),
         EarlyStopping(
-            monitor="val_loss", patience=10, restore_best_weights=True, verbose=1
+            monitor="val_loss",
+            patience=10,
+            restore_best_weights=True,
+            verbose=1,
         ),
         tf.keras.callbacks.ReduceLROnPlateau(
-            monitor="val_loss", factor=0.2, patience=5, min_lr=1e-6
+            monitor="val_loss",
+            factor=0.2,
+            patience=5,
+            min_lr=1e-6,
+            verbose=1,
         ),
     ]
 
-    # Entrenar el modelo
+    # Entrenar modelo
+    logger.info(f"Iniciando entrenamiento por {epochs} épocas...")
     history = model.fit(
         train_dataset,
         validation_data=val_dataset,
         epochs=epochs,
         callbacks=callbacks,
-        workers=os.cpu_count(),  # Carga de datos en paralelo
+        workers=os.cpu_count(),
         use_multiprocessing=True,
     )
 
+    logger.info("Entrenamiento completado")
     return history
 
 
@@ -89,11 +100,7 @@ def train_model(
 
 def plot_training_history(history, save_path="artifacts/plots/training_history.png"):
     """
-    Graficar historial de entrenamiento mostrando curvas de precisión y pérdida.
-
-    Args:
-        history: Historial de entrenamiento de model.fit()
-        save_path (str): Ruta para guardar el gráfico
+    Graficar historial de entrenamiento.
     """
     # Crear directorio si no existe
     os.makedirs(os.path.dirname(save_path), exist_ok=True)
@@ -119,3 +126,5 @@ def plot_training_history(history, save_path="artifacts/plots/training_history.p
     plt.tight_layout()
     plt.savefig(save_path)
     plt.close()
+
+    logger.info(f"Gráficos guardados en {save_path}")
