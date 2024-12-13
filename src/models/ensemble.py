@@ -203,60 +203,53 @@ class ParallelEnsemble:
                     f"  Score Combinado: {self.weights[i-1]:.4f}"
                 )
 
-    def predict(self, X, y=None):
-        """Predicción con votación ponderada suave"""
+    def predict(self, X, y):
+        """
+        Realiza predicciones usando todos los modelos del ensemble
+        """
         logger.info("Realizando predicciones del ensemble...")
 
-        n_samples = len(X)
-        n_batches = (n_samples + self.batch_size - 1) // self.batch_size
+        try:
+            # Lista para almacenar predicciones de cada modelo
+            predictions = []
 
-        # Almacenar probabilidades en lugar de predicciones binarias
-        predictions = []
+            # Realizar predicciones con cada modelo
+            for i, model in enumerate(self.models, 1):
+                pred = model.predict(X)
+                # Debug info
+                logger.info(f"Shape de predicción modelo {i}: {pred.shape}")
+                pred = pred.squeeze()
+                logger.info(f"Shape después de squeeze: {pred.shape}")
+                predictions.append(pred)
+                logger.info(f"Modelo {i}/{len(self.models)} procesado")
 
-        with ThreadPoolExecutor(max_workers=self.cpu_count) as executor:
-            for model_idx, (model, weight) in enumerate(
-                zip(self.models, self.weights), 1
-            ):
-                model_probs = []
-                futures = []
+            # Debug info
+            predictions = np.array(predictions)
+            logger.info(f"Shape final de predictions: {predictions.shape}")
+            logger.info(f"Shape de y: {y.shape}")
 
-                for i in range(n_batches):
-                    start_idx = i * self.batch_size
-                    end_idx = min((i + 1) * self.batch_size, n_samples)
-                    batch = X[start_idx:end_idx]
-                    future = executor.submit(self._predict_batch, model, batch)
-                    futures.append(future)
+            weighted_predictions = np.average(predictions, axis=0, weights=self.weights)
+            ensemble_pred = (weighted_predictions > 0.5).astype(int)
 
-                for future in futures:
-                    batch_probs = future.result()
-                    model_probs.append(batch_probs)
-
-                # Concatenar y aplicar peso
-                model_probs = np.concatenate(model_probs) * weight
-                predictions.append(model_probs)
-
-                if self.verbose:
-                    logger.info(f"Modelo {model_idx}/{self.n_models} procesado")
-
-        # Promedio ponderado de probabilidades
-        ensemble_probs = np.sum(predictions, axis=0)
-
-        # Decisión final con umbral optimizado (0.4 en lugar de 0.5)
-        ensemble_pred = ensemble_probs > 0.4
-
-        if y is not None:
+            # Calcular métricas de forma más segura
             accuracy = np.mean(ensemble_pred == y)
-            # Calcular métricas adicionales
-            precision = np.mean(ensemble_pred[y == 1])
-            recall = np.mean(y[ensemble_pred == 1])
-            f1 = 2 * (precision * recall) / (precision + recall)
 
-            logger.info(f"\nMétricas del ensemble:")
-            logger.info(f"Precisión: {accuracy:.4f}")
-            logger.info(f"Precision: {precision:.4f}")
-            logger.info(f"Recall: {recall:.4f}")
-            logger.info(f"F1-Score: {f1:.4f}")
+            true_pos = np.sum((ensemble_pred == 1) & (y == 1))
+            pred_pos = np.sum(ensemble_pred == 1)
+            actual_pos = np.sum(y == 1)
 
-            return ensemble_pred, accuracy
+            precision = true_pos / (pred_pos + 1e-10)
+            recall = true_pos / (actual_pos + 1e-10)
 
-        return ensemble_pred
+            metrics = {
+                "accuracy": float(accuracy),
+                "precision": float(precision),
+                "recall": float(recall),
+            }
+
+            return ensemble_pred, metrics
+
+        except Exception as e:
+            logger.error(f"Error en predict: {str(e)}")
+            logger.error(f"Tipo de error: {type(e)}")
+            raise
