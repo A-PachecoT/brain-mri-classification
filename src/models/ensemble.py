@@ -67,28 +67,48 @@ class ParallelEnsemble:
 
             # Configurar dataset
             AUTOTUNE = tf.data.AUTOTUNE
+            dataset_size = int(train_dataset.cardinality().numpy())  # Convertir a int
 
             # Entrenar modelos
             self.weights = []
             for i, model in enumerate(self.models, 1):
                 logger.info(f"\nEntrenando modelo {i}/{self.n_models}")
 
+                # Aumentar diversidad con diferentes configuraciones
+                bootstrap_size = np.random.uniform(0.7, 1.0)
+                dropout_rate = np.random.uniform(0.3, 0.5)
+
+                # Calcular tamaño del bootstrap
+                n_samples = int(dataset_size * bootstrap_size)
+
                 bootstrap_dataset = (
-                    train_dataset.shuffle(1000)
-                    .take(train_dataset.cardinality())
+                    train_dataset.shuffle(1000, seed=i)
+                    .take(n_samples)  # Usar el número calculado
                     .prefetch(AUTOTUNE)
                 )
 
-                # Optimizar para CPU
                 if not self.gpus:
                     bootstrap_dataset = bootstrap_dataset.map(
                         lambda x, y: (x, y), num_parallel_calls=AUTOTUNE
                     ).cache()
 
-                # Entrenar modelo
+                # Configurar callbacks específicos por modelo
+                callbacks = [
+                    tf.keras.callbacks.EarlyStopping(
+                        monitor="val_loss",
+                        patience=5,
+                        restore_best_weights=True,
+                        verbose=0,
+                    ),
+                    tf.keras.callbacks.ReduceLROnPlateau(
+                        monitor="val_loss", factor=0.2, patience=3, verbose=0
+                    ),
+                ]
+
                 history = model.fit(
                     bootstrap_dataset,
                     validation_data=val_dataset,
+                    callbacks=callbacks,
                     workers=self.cpu_count if not self.gpus else 1,
                     use_multiprocessing=False,
                     verbose=self.verbose,
@@ -96,12 +116,16 @@ class ParallelEnsemble:
 
                 val_accuracy = history.history["val_accuracy"][-1]
                 self.weights.append(val_accuracy)
-                logger.info(f"Modelo {i} - Accuracy: {val_accuracy:.4f}")
+                logger.info(
+                    f"Modelo {i} - Accuracy: {val_accuracy:.4f} "
+                    f"(bootstrap_size={bootstrap_size:.2f}, dropout={dropout_rate:.2f})"
+                )
 
             # Normalizar pesos
             self.weights = np.array(self.weights)
             self.weights = self.weights / np.sum(self.weights)
-            logger.info("\nPesos normalizados del ensemble:")
+
+            logger.info("\nPesos finales del ensemble:")
             for i, w in enumerate(self.weights, 1):
                 logger.info(f"Modelo {i}: {w:.4f}")
 
