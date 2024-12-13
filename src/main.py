@@ -4,7 +4,7 @@ from data.data_loader import load_data, create_dataset
 from models.model import create_model
 from utils.train import train_model, plot_training_history
 from utils.evaluate import evaluate_model, plot_confusion_matrix
-from utils.ensemble import ParallelEnsemble
+from models.ensemble import ParallelEnsemble
 
 # ========================
 # Configuración Principal
@@ -24,11 +24,11 @@ def main():
     # ========================
 
     # Cargar y preprocesar datos con procesamiento paralelo
-    print("Loading data...")
+    print("Cargando datos...")
     X_train, X_test, y_train, y_test = load_data(data_dir="data/raw")
 
     # Crear datasets optimizados con procesamiento paralelo
-    print("Creating datasets...")
+    print("Creando datasets...")
     train_dataset = create_dataset(X_train, y_train, is_training=True)
     test_dataset = create_dataset(X_test, y_test, is_training=False)
 
@@ -37,12 +37,12 @@ def main():
     # ========================
 
     # Crear y compilar modelo con soporte multi-GPU
-    print("Creating model...")
+    print("Creando modelo...")
     model = create_model()
     model.summary()
 
     # Entrenar el modelo
-    print("\nTraining model...")
+    print("\nEntrenando modelo...")
     history = train_model(
         model, train_dataset, test_dataset, checkpoint_dir="artifacts/models"
     )
@@ -52,15 +52,15 @@ def main():
     # ========================
 
     # Graficar historial de entrenamiento
-    print("Plotting training history...")
+    print("Graficando historial de entrenamiento...")
     plot_training_history(history, save_path="artifacts/plots/training_history.png")
 
     # Evaluar el modelo
-    print("\nEvaluating model...")
+    print("\nEvaluando modelo...")
     results = evaluate_model(model, test_dataset)
 
     # Graficar matriz de confusión
-    print("Plotting confusion matrix...")
+    print("Graficando matriz de confusión...")
     plot_confusion_matrix(
         results["y_true"],
         results["y_pred"],
@@ -68,16 +68,16 @@ def main():
     )
 
     # Crear y entrenar ensemble
-    print("\nTraining ensemble models...")
+    print("\nEntrenando modelos del ensemble...")
     ensemble = ParallelEnsemble(n_models=3)
     ensemble.train(train_dataset, test_dataset)
 
     # Evaluar ensemble
-    print("\nEvaluating ensemble...")
+    print("\nEvaluando ensemble...")
     y_pred = ensemble.predict(X_test)
 
     # Graficar matriz de confusión
-    print("Plotting confusion matrix...")
+    print("Graficando matriz de confusión...")
     plot_confusion_matrix(
         y_test,
         y_pred,
@@ -85,12 +85,12 @@ def main():
     )
 
     # Imprimir métricas individuales de cada modelo
-    print("\nIndividual model weights (based on validation accuracy):")
+    print("\nPesos de los modelos individuales (basados en precisión de validación):")
     for i, weight in enumerate(ensemble.weights):
-        print(f"Model {i+1}: {weight:.3f}")
+        print(f"Modelo {i+1}: {weight:.3f}")
 
-    print("\nTraining and evaluation completed!")
-    print("Check 'artifacts/plots' directory for visualizations.")
+    print("\nEntrenamiento y evaluación completados!")
+    print("Revisa el directorio 'artifacts/plots' para visualizaciones.")
 
 
 if __name__ == "__main__":
