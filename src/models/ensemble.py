@@ -3,13 +3,23 @@ from concurrent.futures import ThreadPoolExecutor
 import numpy as np
 from .model import create_model
 import multiprocessing
+import logging
+import os
+
+# Configurar logging
+logging.basicConfig(level=logging.INFO)
+logger = logging.getLogger("ParallelEnsemble")
+
+# Suprimir warnings de TF
+os.environ["TF_CPP_MIN_LOG_LEVEL"] = "2"  # 0=all, 1=no INFO, 2=no WARNING, 3=no ERROR
 
 
 class ParallelEnsemble:
-    def __init__(self, n_models=3, batch_size=32):
+    def __init__(self, n_models=3, batch_size=32, verbose=1):
         self.n_models = n_models
         self.models = []
         self.batch_size = batch_size
+        self.verbose = verbose
 
         # Detectar GPUs y CPUs disponibles
         self.gpus = tf.config.list_physical_devices("GPU")
@@ -17,7 +27,7 @@ class ParallelEnsemble:
 
         if self.gpus:
             self.strategy = tf.distribute.MirroredStrategy()
-            print(f"Usando {len(self.gpus)} GPU(s)")
+            logger.info(f"✓ Usando {len(self.gpus)} GPU(s)")
             # Configurar crecimiento de memoria
             for gpu in self.gpus:
                 try:
@@ -26,35 +36,43 @@ class ParallelEnsemble:
                     pass
         else:
             self.strategy = tf.distribute.get_strategy()
-            print(f"GPU no disponible, usando {self.cpu_count} CPU cores")
+            logger.info(f"✓ Usando {self.cpu_count} CPU cores")
 
     def _predict_batch(self, model, batch):
         """Predicción paralela por lotes"""
-        return model.predict(batch, batch_size=self.batch_size)
+        return model.predict(batch, batch_size=self.batch_size, verbose=0)
 
     def _train_model(self):
-        """Entrena un modelo individual del ensemble usando CPU cores"""
+        """Entrena un modelo individual del ensemble"""
         with self.strategy.scope():
             model = create_model()
             return model
 
+    @tf.function(reduce_retracing=True)
+    def _predict_tf_function(self, model, batch):
+        """Función TF optimizada para predicción"""
+        return model(batch, training=False)
+
     def train(self, train_dataset, val_dataset):
-        """Entrena múltiples modelos en paralelo usando threads"""
-        # Usar ThreadPoolExecutor para paralelismo a nivel de thread
+        """Entrena múltiples modelos en paralelo"""
+        logger.info("Iniciando entrenamiento del ensemble...")
+
         with ThreadPoolExecutor(max_workers=self.cpu_count) as executor:
-            # Primero crear los modelos en paralelo
+            # Crear modelos en paralelo
+            logger.info(f"Creando {self.n_models} modelos en paralelo...")
             model_futures = [
                 executor.submit(self._train_model) for _ in range(self.n_models)
             ]
             self.models = [future.result() for future in model_futures]
 
-            # Configurar dataset para procesamiento paralelo
+            # Configurar dataset
             AUTOTUNE = tf.data.AUTOTUNE
 
             # Entrenar modelos
             self.weights = []
-            for model in self.models:
-                # Crear copia del dataset para cada modelo
+            for i, model in enumerate(self.models, 1):
+                logger.info(f"\nEntrenando modelo {i}/{self.n_models}")
+
                 bootstrap_dataset = (
                     train_dataset.shuffle(1000)
                     .take(train_dataset.cardinality())
@@ -72,45 +90,52 @@ class ParallelEnsemble:
                     bootstrap_dataset,
                     validation_data=val_dataset,
                     workers=self.cpu_count if not self.gpus else 1,
-                    use_multiprocessing=False,  # Evitar problemas de pickle
+                    use_multiprocessing=False,
+                    verbose=self.verbose,
                 )
 
                 val_accuracy = history.history["val_accuracy"][-1]
                 self.weights.append(val_accuracy)
+                logger.info(f"Modelo {i} - Accuracy: {val_accuracy:.4f}")
 
             # Normalizar pesos
             self.weights = np.array(self.weights)
             self.weights = self.weights / np.sum(self.weights)
+            logger.info("\nPesos normalizados del ensemble:")
+            for i, w in enumerate(self.weights, 1):
+                logger.info(f"Modelo {i}: {w:.4f}")
 
     def predict(self, X):
-        """Predicción paralela por lotes con votación ponderada"""
-        # Dividir datos en lotes para predicción paralela
+        """Predicción paralela por lotes"""
+        logger.info("Realizando predicciones del ensemble...")
+
         n_samples = len(X)
         n_batches = (n_samples + self.batch_size - 1) // self.batch_size
 
         predictions = []
         with ThreadPoolExecutor(max_workers=self.cpu_count) as executor:
-            for model, weight in zip(self.models, self.weights):
+            for model_idx, (model, weight) in enumerate(
+                zip(self.models, self.weights), 1
+            ):
                 model_preds = []
                 futures = []
 
-                # Procesar cada lote en paralelo
                 for i in range(n_batches):
                     start_idx = i * self.batch_size
                     end_idx = min((i + 1) * self.batch_size, n_samples)
                     batch = X[start_idx:end_idx]
-
                     future = executor.submit(self._predict_batch, model, batch)
                     futures.append(future)
 
-                # Recolectar resultados
                 for future in futures:
                     batch_pred = future.result()
                     model_preds.append(batch_pred)
 
-                # Combinar predicciones del modelo
                 model_preds = np.concatenate(model_preds) * weight
                 predictions.append(model_preds)
+
+                if self.verbose:
+                    logger.info(f"Modelo {model_idx}/{self.n_models} procesado")
 
         # Votación ponderada final
         ensemble_pred = np.sum(predictions, axis=0) > 0.5
