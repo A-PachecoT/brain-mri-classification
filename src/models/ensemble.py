@@ -129,8 +129,8 @@ class ParallelEnsemble:
             for i, w in enumerate(self.weights, 1):
                 logger.info(f"Modelo {i}: {w:.4f}")
 
-    def predict(self, X):
-        """Predicción paralela por lotes"""
+    def predict(self, X, y=None):
+        """Predicción paralela por lotes con evaluación opcional"""
         logger.info("Realizando predicciones del ensemble...")
 
         n_samples = len(X)
@@ -163,4 +163,11 @@ class ParallelEnsemble:
 
         # Votación ponderada final
         ensemble_pred = np.sum(predictions, axis=0) > 0.5
+
+        # Calcular accuracy si se proporcionan etiquetas verdaderas
+        if y is not None:
+            accuracy = np.mean(ensemble_pred == y)
+            logger.info(f"\nPrecisión del ensemble: {accuracy:.4f}")
+            return ensemble_pred, accuracy
+
         return ensemble_pred

@@ -90,8 +90,9 @@ def main():
     logger.info("Entrenando modelos del ensemble...")
     ensemble.train(train_dataset, test_dataset)
 
+    # Evaluar ensemble
     logger.info("\nEvaluando ensemble...")
-    y_pred_ensemble = ensemble.predict(X_test)
+    y_pred_ensemble, ensemble_accuracy = ensemble.predict(X_test, y_test)
     plot_confusion_matrix(
         y_test,
         y_pred_ensemble,
@@ -104,7 +105,8 @@ def main():
     logger.info("\nRESUMEN DE ENTRENAMIENTO")
     logger.info("=" * 30)
     logger.info(f"Precisión modelo base: {results['accuracy']:.4f}")
-    logger.info("Precisión modelos ensemble:")
+    logger.info(f"Precisión ensemble: {ensemble_accuracy:.4f}")
+    logger.info("\nPesos de los modelos:")
     for i, weight in enumerate(ensemble.weights, 1):
         logger.info(f"  Modelo {i}: {weight:.4f}")
 
