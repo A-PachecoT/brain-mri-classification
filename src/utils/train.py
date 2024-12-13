@@ -61,7 +61,7 @@ def train_model(
             monitor="val_accuracy",
             save_best_only=True,
             mode="max",
-            verbose=1,
+            verbose=0,
         ),
         EarlyStopping(
             monitor="val_loss",
@@ -74,7 +74,17 @@ def train_model(
             factor=0.2,
             patience=5,
             min_lr=1e-6,
-            verbose=1,
+            verbose=0,
+        ),
+        tf.keras.callbacks.LambdaCallback(
+            on_epoch_end=lambda epoch, logs: (
+                logger.info(
+                    f"Época {epoch+1}: loss={logs['loss']:.4f}, acc={logs['accuracy']:.4f}, "
+                    f"val_loss={logs['val_loss']:.4f}, val_acc={logs['val_accuracy']:.4f}"
+                )
+                if epoch % 5 == 0
+                else None
+            )
         ),
     ]
 

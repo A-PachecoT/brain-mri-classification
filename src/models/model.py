@@ -52,7 +52,10 @@ def create_model(input_shape=(128, 128, 3)):
 
         logger.info("Compilando modelo...")
         model.compile(
-            optimizer=optimizer, loss="binary_crossentropy", metrics=["accuracy"]
+            optimizer=optimizer,
+            loss="binary_crossentropy",
+            metrics=["accuracy"],
+            run_eagerly=False,
         )
 
     return model
