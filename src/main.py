@@ -1,96 +1,115 @@
 import os
 import tensorflow as tf
+import logging
 from data.data_loader import load_data, create_dataset
 from models.model import create_model
 from utils.train import train_model, plot_training_history
 from utils.evaluate import evaluate_model, plot_confusion_matrix
 from models.ensemble import ParallelEnsemble
 
-# ========================
-# Configuración Principal
-# ========================
+# Configurar logging
+logging.basicConfig(
+    level=logging.INFO,
+    format="%(asctime)s - %(levelname)s - %(message)s",
+    datefmt="%Y-%m-%d %H:%M:%S",
+)
+logger = logging.getLogger("MRI-Classification")
+
+# Suprimir warnings de TF
+os.environ["TF_CPP_MIN_LOG_LEVEL"] = "2"
 
 
 def main():
-    # Establecer semillas aleatorias para reproducibilidad
+    logger.info("=" * 50)
+    logger.info("INICIANDO CLASIFICACIÓN DE RESONANCIAS MAGNÉTICAS")
+    logger.info("=" * 50)
+
+    # Establecer semillas aleatorias
     tf.random.set_seed(42)
 
-    # Habilitar crecimiento de memoria para GPUs
-    for gpu in tf.config.list_physical_devices("GPU"):
-        tf.config.experimental.set_memory_growth(gpu, True)
+    # ========================
+    # Configuración de Hardware
+    # ========================
+    gpus = tf.config.list_physical_devices("GPU")
+    if gpus:
+        logger.info(f"✓ {len(gpus)} GPU(s) detectada(s)")
+        for gpu in tf.config.list_physical_devices("GPU"):
+            tf.config.experimental.set_memory_growth(gpu, True)
+    else:
+        logger.info("✗ No se detectaron GPUs, usando CPU")
 
     # ========================
     # Carga de Datos
     # ========================
+    logger.info("\n1. PREPARACIÓN DE DATOS")
+    logger.info("-" * 30)
 
-    # Cargar y preprocesar datos con procesamiento paralelo
-    print("Cargando datos...")
+    logger.info("Cargando imágenes...")
     X_train, X_test, y_train, y_test = load_data(data_dir="data/raw")
 
-    # Crear datasets optimizados con procesamiento paralelo
-    print("Creando datasets...")
+    logger.info("Creando datasets optimizados...")
     train_dataset = create_dataset(X_train, y_train, is_training=True)
     test_dataset = create_dataset(X_test, y_test, is_training=False)
+    logger.info("✓ Datos preparados correctamente")
 
     # ========================
-    # Modelo y Entrenamiento
+    # Modelo Base
     # ========================
+    logger.info("\n2. ENTRENAMIENTO MODELO BASE")
+    logger.info("-" * 30)
 
-    # Crear y compilar modelo con soporte multi-GPU
-    print("Creando modelo...")
+    logger.info("Inicializando modelo...")
     model = create_model()
     model.summary()
 
-    # Entrenar el modelo
-    print("\nEntrenando modelo...")
+    logger.info("\nEntrenando modelo base...")
     history = train_model(
         model, train_dataset, test_dataset, checkpoint_dir="artifacts/models"
     )
 
-    # ========================
-    # Visualización y Evaluación
-    # ========================
-
-    # Graficar historial de entrenamiento
-    print("Graficando historial de entrenamiento...")
+    logger.info("Generando visualizaciones...")
     plot_training_history(history, save_path="artifacts/plots/training_history.png")
 
-    # Evaluar el modelo
-    print("\nEvaluando modelo...")
+    logger.info("\nEvaluando modelo base...")
     results = evaluate_model(model, test_dataset)
-
-    # Graficar matriz de confusión
-    print("Graficando matriz de confusión...")
     plot_confusion_matrix(
         results["y_true"],
         results["y_pred"],
         save_path="artifacts/plots/confusion_matrix.png",
     )
 
-    # Crear y entrenar ensemble
-    print("\nEntrenando modelos del ensemble...")
-    ensemble = ParallelEnsemble(n_models=3)
+    # ========================
+    # Ensemble Learning
+    # ========================
+    logger.info("\n3. ENTRENAMIENTO ENSEMBLE")
+    logger.info("-" * 30)
+
+    logger.info("Inicializando ensemble...")
+    ensemble = ParallelEnsemble(n_models=3, verbose=1)
+
+    logger.info("Entrenando modelos del ensemble...")
     ensemble.train(train_dataset, test_dataset)
 
-    # Evaluar ensemble
-    print("\nEvaluando ensemble...")
-    y_pred = ensemble.predict(X_test)
-
-    # Graficar matriz de confusión
-    print("Graficando matriz de confusión...")
+    logger.info("\nEvaluando ensemble...")
+    y_pred_ensemble = ensemble.predict(X_test)
     plot_confusion_matrix(
         y_test,
-        y_pred,
+        y_pred_ensemble,
         save_path="artifacts/plots/ensemble_confusion_matrix.png",
     )
 
-    # Imprimir métricas individuales de cada modelo
-    print("\nPesos de los modelos individuales (basados en precisión de validación):")
-    for i, weight in enumerate(ensemble.weights):
-        print(f"Modelo {i+1}: {weight:.3f}")
+    # ========================
+    # Resumen Final
+    # ========================
+    logger.info("\nRESUMEN DE ENTRENAMIENTO")
+    logger.info("=" * 30)
+    logger.info(f"Precisión modelo base: {results['accuracy']:.4f}")
+    logger.info("Precisión modelos ensemble:")
+    for i, weight in enumerate(ensemble.weights, 1):
+        logger.info(f"  Modelo {i}: {weight:.4f}")
 
-    print("\nEntrenamiento y evaluación completados!")
-    print("Revisa el directorio 'artifacts/plots' para visualizaciones.")
+    logger.info("\n✓ Entrenamiento completado!")
+    logger.info("  Revisa el directorio 'artifacts/plots' para las visualizaciones")
 
 
 if __name__ == "__main__":
