@@ -5,6 +5,9 @@ import seaborn as sns
 import os
 import tensorflow as tf
 from concurrent.futures import ThreadPoolExecutor
+import logging
+
+logger = logging.getLogger("MRI-Classification")
 
 # ========================
 # Funciones de Evaluación
@@ -34,25 +37,24 @@ def evaluate_model(model, test_dataset):
         futures = []
 
         for images, labels in test_dataset:
-            futures.append(executor.submit(parallel_predict, model, images))
             y_true.extend(labels.numpy())
-
-        # Recolectar resultados
-        for future in futures:
-            predictions = future.result()
-            y_pred.extend(predictions.flatten() > 0.5)
+            pred = model.predict(images, verbose=0)
+            y_pred.extend(pred.flatten() > 0.5)
 
     # Convertir a arrays numpy
     y_pred = np.array(y_pred)
     y_true = np.array(y_true)
 
+    # Calcular métricas
+    accuracy = np.mean(y_pred == y_true)
+
     # Imprimir reporte de clasificación
-    print("\nReporte de Clasificación:")
-    print(
+    logger.info("\nReporte de Clasificación:")
+    logger.info(
         classification_report(y_true, y_pred, target_names=["Sin Tumor", "Con Tumor"])
     )
 
-    return {"y_true": y_true, "y_pred": y_pred}
+    return {"y_true": y_true, "y_pred": y_pred, "accuracy": accuracy}
 
 
 # ========================
@@ -74,7 +76,10 @@ def plot_confusion_matrix(
     # Crear directorio si no existe
     os.makedirs(os.path.dirname(save_path), exist_ok=True)
 
+    # Calcular matriz de confusión
     cm = confusion_matrix(y_true, y_pred)
+
+    # Crear gráfico
     plt.figure(figsize=(8, 6))
     sns.heatmap(
         cm,
@@ -87,5 +92,9 @@ def plot_confusion_matrix(
     plt.title("Matriz de Confusión")
     plt.ylabel("Etiqueta Verdadera")
     plt.xlabel("Etiqueta Predicha")
+
+    # Guardar y cerrar
     plt.savefig(save_path)
     plt.close()
+
+    logger.info(f"Matriz de confusión guardada en {save_path}")
