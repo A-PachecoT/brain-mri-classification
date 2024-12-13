@@ -4,6 +4,7 @@ from data.data_loader import load_data, create_dataset
 from models.model import create_model
 from utils.train import train_model, plot_training_history
 from utils.evaluate import evaluate_model, plot_confusion_matrix
+from utils.ensemble import ParallelEnsemble
 
 # ========================
 # Configuración Principal
@@ -65,6 +66,28 @@ def main():
         results["y_pred"],
         save_path="artifacts/plots/confusion_matrix.png",
     )
+
+    # Crear y entrenar ensemble
+    print("\nTraining ensemble models...")
+    ensemble = ParallelEnsemble(n_models=3)
+    ensemble.train(train_dataset, test_dataset)
+
+    # Evaluar ensemble
+    print("\nEvaluating ensemble...")
+    y_pred = ensemble.predict(X_test)
+
+    # Graficar matriz de confusión
+    print("Plotting confusion matrix...")
+    plot_confusion_matrix(
+        y_test,
+        y_pred,
+        save_path="artifacts/plots/ensemble_confusion_matrix.png",
+    )
+
+    # Imprimir métricas individuales de cada modelo
+    print("\nIndividual model weights (based on validation accuracy):")
+    for i, weight in enumerate(ensemble.weights):
+        print(f"Model {i+1}: {weight:.3f}")
 
     print("\nTraining and evaluation completed!")
     print("Check 'artifacts/plots' directory for visualizations.")
